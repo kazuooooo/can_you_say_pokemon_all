@@ -40,6 +40,8 @@ var handlers = {
   },
   'AMAZON.HelpIntent': function () {
     this.handler.state = states.PLAYING_MODE;
+    // reset
+    this.attributes['said_pokemons'] = [];
     this.emit(':ask', 'ポケモン言えるかなスキルです。' + 'ポケモンを言ってください');
   },
   'HoroscopeIntent': function () {
@@ -73,11 +75,23 @@ var synastriesHandlers = Alexa.CreateStateHandler(states.PLAYING_MODE, {
   'PokemonIntent': function() {
     var pokemon = this.event.request.intent.slots.Pokemon.value;
     if (pokemons.indexOf(pokemon) > -1) {
+
+      // 言ったポケモンをsession attributeに保存する
+      this.attributes['said_pokemons'].push(pokemon);
+      var notSaidPokemons = getArrayDiff(pokemons, this.attributes['said_pokemons'])
+      console.log(notSaidPokemons);
       // まだ残っている場合はあと何匹か言う
-      // 全て終わった場合は終了する
-      var message = '正解です!!次のポケモンを言ってください'
-      var reprompt = 'ポケモンを言ってください〜'
-      this.emit(':ask', message, reprompt);
+      if(notSaidPokemons.length > 0) {
+        var message = '正解です!!あと' + notSaidPokemons.length.toString() + '匹です。次のポケモンを言ってください'
+        var reprompt = 'ポケモンを言ってください〜'
+        this.emit(':ask', message, reprompt);
+      } else {
+        // 全て終わった場合は終了する
+        var message = 'おめでとうございます全てのポケモンが言えました！！'
+        this.emit(':tell', message);
+      }
+      
+
     } else {
       var message = '残念。そんなポケモンはいません。'
       this.handler.state = '';
@@ -85,7 +99,15 @@ var synastriesHandlers = Alexa.CreateStateHandler(states.PLAYING_MODE, {
     }
   },
   'Unhandled': function() {
-    var reprompt = 'お相手の星座を教えてください';
-    this.emit(':ask', reprompt, reprompt);
+    var message = '残念。そんなポケモンはいません。'
+    this.handler.state = '';
+    this.emit(':tell', message);
   }
 });
+
+function getArrayDiff(arr1, arr2) {
+  let arr = arr1.concat(arr2);
+  return arr.filter((v, i)=> {
+    return !(arr1.indexOf(v) !== -1 && arr2.indexOf(v) !== -1);
+  });
+}
