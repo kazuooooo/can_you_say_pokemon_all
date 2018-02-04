@@ -1,6 +1,15 @@
 "use strict";
 const Alexa = require('alexa-sdk');
 
+// Pokemons
+const pokemons = [
+  'ピカチュウ',
+  'カイリュー',
+  'ヤドラン',
+  'ピジョン',
+  'コダック'
+]
+
 // ステートの定義
 const states = {
   PLAYING_MODE: '_PLAYING_MODE'
@@ -14,13 +23,11 @@ exports.handler = function(event, context, callback) {
 };
 var handlers = {
   'LaunchRequest': function () {
-    this.handler.state = states.PLAYING_MODE; // stateにPLAYING_MODEをセット
-    var message = 'ポケモン言えるかなへようこそ。ポケモンを言ってください。'
-    this.emit(':ask', message);
+     this.emit('AMAZON.HelpIntent');
   },
   'AMAZON.HelpIntent': function () {
     this.handler.state = states.PLAYING_MODE; // stateにPLAYING_MODEをセット
-    this.handler.state = states.PLAYING_MODE;
+    this.attributes['said_pokemons'] = [];
     var message = 'ポケモンを言っていくゲームです。ポケモンを言ってください。'
     this.emit(':ask', message);
   }
@@ -31,13 +38,39 @@ var pokemonHandlers = Alexa.CreateStateHandler(states.PLAYING_MODE, {
   'PokemonIntent': function() {
     var pokemon = this.event.request.intent.slots.Pokemon.value;
     if (pokemons.indexOf(pokemon) > -1) {
-      var message = '正解です!!次のポケモンを言ってください'
-      var reprompt = 'ポケモンを言ってください〜'
-      this.emit(':ask', message, reprompt); // 正解の場合は継続
+
+      // 言ったポケモンをsession attributeに保存する
+      this.attributes['said_pokemons'].push(pokemon);
+      var notSaidPokemons = getArrayDiff(pokemons, this.attributes['said_pokemons'])
+      console.log(notSaidPokemons);
+      // まだ残っている場合はあと何匹か言う
+      if(notSaidPokemons.length > 0) {
+        var message = '正解です!!あと' + notSaidPokemons.length.toString() + '匹です。次のポケモンを言ってください'
+        var reprompt = 'ポケモンを言ってください〜'
+        this.emit(':ask', message, reprompt); // しばらく何も回答しなかった場合にrepromptが呼ばれる
+      } else {
+        // 全て終わった場合は終了する
+        var message = 'おめでとうございます全てのポケモンが言えました！！'
+        this.emit(':tell', message);
+      }
+      
+
     } else {
       var message = '残念。そんなポケモンはいません。'
       this.handler.state = '';
-      this.emit(':tell', message); // 不正解の場合は終了
+      this.emit(':tell', message);
     }
+  },
+  'Unhandled': function() {
+    var message = '残念。そんなポケモンはいません。'
+    this.handler.state = '';
+    this.emit(':tell', message);
   }
 });
+
+function getArrayDiff(arr1, arr2) {
+  let arr = arr1.concat(arr2);
+  return arr.filter((v, i)=> {
+    return !(arr1.indexOf(v) !== -1 && arr2.indexOf(v) !== -1);
+  });
+}
